@@ -1,5 +1,3 @@
-# GDAM_args.py
-
 import argparse
 
 

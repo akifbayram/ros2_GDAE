@@ -24,7 +24,7 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(ignition_bringup_path),
         launch_arguments={
             # 'namespace': 'robot1',
-            'world': 'maze' ,
+            # 'world': 'maze' ,
             'nav2': 'true',
             'slam': 'true',
             'localization': 'false',

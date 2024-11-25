@@ -1,5 +1,3 @@
-# GDAM.py
-
 from GDAM_env import ImplementEnv
 import tensorflow as tf
 import tflearn
@@ -119,7 +117,7 @@ def main():
     
     # Restore model from checkpoint
     saver = tf.compat.v1.train.Saver(a_net_params, max_to_keep=1)
-    checkpoint_path = "/home/reinis/gym-gazebo/gym_gazebo/envs/mod/demo"
+    checkpoint_path = "/home/cs488/ros2_GDAE/src/GDAE/model"
     checkpoint = tf.train.get_checkpoint_state(checkpoint_path)
     
     if checkpoint and checkpoint.model_checkpoint_path:
