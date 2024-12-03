@@ -38,10 +38,8 @@ def rotatepos(point, angle):
 def calcqxqy(dist, angl, ang):
     angl = math.radians(angl)
     angle = angl + ang
-    if angle > np.pi:
-        angle = angle - 2 * np.pi
-    if angle < -np.pi:
-        angle = angle + 2 * np.pi
+    # Normalize angle to [-pi, pi]
+    angle = (angle + np.pi) % (2 * np.pi) - np.pi
     if angle > 0:
         qx, qy = rotatepos([dist, 0], angle)
     else:
