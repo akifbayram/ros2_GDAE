@@ -9,8 +9,8 @@ def get_arguments():
     parser.add_argument("--deleted_node_vicinity",
                         help="Radius of the vicinity of deleted nodes in which not to add new nodes",
                         type=float, default=0.75)
-    # parser.add_argument("--launchfile", default='multi_robot_scenario.launch.py',
-    #                     help="Name of the ROS 2 launch file")
+    parser.add_argument("--launchfile", default='tb4.launch.py',
+                        help="Name of the ROS 2 launch file")
     parser.add_argument("--min_in", help="Minimum laser measurement at which to detect a collision",
                         type=float, default=0.62)
     parser.add_argument("--side_min_in",
