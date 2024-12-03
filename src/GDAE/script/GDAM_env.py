@@ -361,28 +361,29 @@ class ImplementEnv(Node):
         self.goalY = self.nodes[self.g_node][3]
         self.get_logger().debug(f'Current goal set to: X: {self.goalX}, Y: {self.goalY}')
 
-        Dist = math.sqrt((self.odomX - self.goalX) ** 2 + (self.odomY - self.goalY) ** 2)
-        self.get_logger().debug(f'Distance to current goal: {Dist}')
+        Dist = math.sqrt(math.pow(self.odomX - self.goalX, 2) + math.pow(self.odomY - self.goalY, 2))
 
         skewX = self.goalX - self.odomX
         skewY = self.goalY - self.odomY
 
-        dot = skewX * 1.0 + skewY * 0.0
-        mag1 = math.sqrt(skewX ** 2 + skewY ** 2)
-        mag2 = 1.0  # sqrt(1^2 + 0^2) = 1
-        beta = math.acos(dot / (mag1 * mag2)) if mag1 != 0 else 0.0
+        dot = skewX * 1 + skewY * 0
+        mag1 = math.sqrt(math.pow(skewX, 2) + math.pow(skewY, 2))
+        mag2 = math.sqrt(math.pow(1, 2) + math.pow(0, 2))
+        beta = math.acos(dot / (mag1 * mag2))
 
         if skewY < 0:
-            beta = -beta
-
-        beta2 = beta - self.angle
-
+            if skewX < 0:
+                beta = -beta
+            else:
+                beta = 0 - beta
+        beta2 = (beta - self.angle)
         # Normalize angle to [-pi, pi]
         if beta2 > np.pi:
-            beta2 -= 2 * np.pi
+            beta2 = np.pi - beta2
+            beta2 = -np.pi - beta2
         if beta2 < -np.pi:
-            beta2 += 2 * np.pi
-
+            beta2 = -np.pi - beta2
+            beta2 = np.pi - beta2
         self.get_logger().debug(f'Calculated angles - beta: {beta}, beta2: {beta2}')
 
         linear = act[0]
@@ -552,13 +553,13 @@ class ImplementEnv(Node):
                 local_y = node[1] - trans[1]
                 p_tmp = q8c.rotate([local_x, local_y, 0])
 
-                d = math.sqrt((self.odomX - p_tmp[0])**2 + (self.odomY - p_tmp[1])**2)
+                d = math.sqrt(math.pow(self.odomX - p_tmp[0], 2) + math.pow(self.odomY - p_tmp[1], 2))
                 self.get_logger().debug(f'Path point {c_p} distance: {d}')
-                if d > 4.0 or (c_p == path_len and d > 1.5):
+                if d > 4.0 or (c_p == path_len and d>1.5):
                     f = True
                     for j in range(len(self.nodes)):
                         check_d = math.sqrt(
-                            (self.nodes[j][2] - p_tmp[0])**2 + (self.nodes[j][3] - p_tmp[1])**2)
+                            math.pow(self.nodes[j][2] - p_tmp[0], 2) + math.pow(self.nodes[j][3] - p_tmp[1], 2))
                         if check_d < 1.0:
                             self.g_node = j
                             self.get_logger().debug(f'Existing node {j} within 1.0m. Setting as g_node.')
@@ -579,7 +580,8 @@ class ImplementEnv(Node):
             f = True
             for j in range(len(self.closed_nodes_rotated)):
                 d = math.sqrt(
-                    (self.closed_nodes_rotated[j][0] - self.odomX)**2 + (self.closed_nodes_rotated[j][1] - self.odomY)**2)
+                    math.pow(self.closed_nodes_rotated[j][0] - self.odomX, 2) + math.pow(
+                        self.closed_nodes_rotated[j][1] - self.odomY, 2))
                 if d < 0.85:
                     f = False
                     self.get_logger().debug(f'Robot is within 0.85m of closed node {j}.')
@@ -671,10 +673,38 @@ class ImplementEnv(Node):
 
     def heuristic(self, odomX, odomY, candidateX, candidateY):
         """Calculate a heuristic value for goal selection."""
+        forward = False
+        to_goal = False
         to_goal2 = True
         gX = self.global_goal_x
         gY = self.global_goal_y
         d = 0
+        if forward:
+            d = math.sqrt(math.pow(candidateX - odomX, 2) + math.pow(candidateY - odomY, 2))
+            skewX = candidateX - odomX
+            skewY = candidateY - odomY
+            dot = skewX * 1 + skewY * 0
+            mag1 = math.sqrt(math.pow(skewX, 2) + math.pow(skewY, 2))
+            mag2 = math.sqrt(math.pow(1, 2) + math.pow(0, 2))
+            beta = math.acos(dot / (mag1 * mag2))
+            if skewY < 0:
+                if skewX < 0:
+                    beta = -beta
+                else:
+                    beta = 0 - beta
+            beta2 = (beta - self.angle)
+            if beta2 > np.pi:
+                beta2 = np.pi - beta2
+                beta2 = -np.pi - beta2
+            if beta2 < -np.pi:
+                beta2 = -np.pi - beta2
+                beta2 = np.pi - beta2
+            d = d + abs(beta2)
+
+        if to_goal:
+            d1 = math.sqrt(math.pow(candidateX - odomX, 2) + math.pow(candidateY - odomY, 2))
+            d2 = math.sqrt(math.pow(candidateX - gX, 2) + math.pow(candidateY - gY, 2))
+            d = d1 * 1.3 + d2 * 0.7
 
         if to_goal2:
             d1 = math.sqrt((candidateX - odomX) ** 2 + (candidateY - odomY) ** 2)
@@ -707,7 +737,7 @@ class ImplementEnv(Node):
             self.get_logger().info("No nodes available to set as goal.")
             return
 
-        min_d = self.heuristic(self.odomX, self.odomY, self.nodes[0][2], self.nodes[0][3])
+        min_d = math.sqrt(math.pow(self.nodes[0][2] - self.odomX, 2) + math.pow(self.nodes[0][3] - self.odomY, 2))
         node_out = 0
 
         for i in range(len(self.nodes)):
@@ -743,7 +773,8 @@ class ImplementEnv(Node):
                 self.get_logger().debug(f'Added to map_nodes: X={qx + odomX}, Y={qy + odomY}')
 
                 for j in range(len(self.nodes) - 1, -1, -1):
-                    d = math.sqrt((self.nodes[j][2] - qx - odomX) ** 2 + (self.nodes[j][3] - qy - odomY) ** 2)
+                    d = math.sqrt(
+                        math.pow(self.nodes[j][2] - qx - odomX, 2) + math.pow(self.nodes[j][3] - qy - odomY, 2))
                     if d < self.del_nodes_range:
                         node = [self.nodes[j][2], self.nodes[j][3]]
                         p_tmp = q9c.rotate([node[0], node[1], 0])
@@ -762,7 +793,8 @@ class ImplementEnv(Node):
                 f = True
                 j = 0
                 while j < len(self.nodes):
-                    d = math.sqrt((self.nodes[j][2] - qx - odomX) ** 2 + (self.nodes[j][3] - qy - odomY) ** 2)
+                    d = math.sqrt(math.pow(self.nodes[j][2] - qx - odomX, 2) +
+                                  math.pow(self.nodes[j][3] - qy - odomY, 2))
                     if d < self.node_vicinity:
                         f = False
                         self.get_logger().debug(f'Node too close to existing node {j}. Skipping addition.')
@@ -770,7 +802,8 @@ class ImplementEnv(Node):
                     j += 1
                 j = 0
                 while f and j < len(self.closed_nodes_rotated):
-                    d = math.sqrt((self.closed_nodes_rotated[j][0] - qx - odomX) ** 2 + (self.closed_nodes_rotated[j][1] - qy - odomY) ** 2)
+                    d = math.sqrt(math.pow(self.closed_nodes_rotated[j][0] - qx - odomX, 2) +
+                                  math.pow(self.closed_nodes_rotated[j][1] - qy - odomY, 2))
                     if d < self.node_vicinity:
                         f = False
                         self.get_logger().debug(f'Node too close to closed node {j}. Skipping addition.')
@@ -778,7 +811,8 @@ class ImplementEnv(Node):
                     j += 1
                 j = 0
                 while f and j < len(self.deleted_nodes_rotated):
-                    d = math.sqrt((self.deleted_nodes_rotated[j][0] - qx - odomX) ** 2 + (self.deleted_nodes_rotated[j][1] - qy - odomY) ** 2)
+                    d = math.sqrt(math.pow(self.deleted_nodes_rotated[j][0] - qx - odomX, 2) +
+                                  math.pow(self.deleted_nodes_rotated[j][1] - qy - odomY, 2))
                     if d < self.del_node_vicinity:
                         f = False
                         self.get_logger().debug(f'Node too close to deleted node {j}. Skipping addition.')
@@ -823,7 +857,8 @@ class ImplementEnv(Node):
                 f = True
                 j = 0
                 while j < len(self.nodes):
-                    d = math.sqrt((self.nodes[j][2] - qx - odomX) ** 2 + (self.nodes[j][3] - qy - odomY) ** 2)
+                    d = math.sqrt(math.pow(self.nodes[j][2] - qx - odomX, 2) +
+                                  math.pow(self.nodes[j][3] - qy - odomY, 2))
                     if d < self.node_vicinity:
                         f = False
                         self.get_logger().debug(f'Free space node too close to existing node {j}. Skipping addition.')
@@ -831,7 +866,8 @@ class ImplementEnv(Node):
                     j += 1
                 j = 0
                 while f and j < len(self.closed_nodes_rotated):
-                    d = math.sqrt((self.closed_nodes_rotated[j][0] - qx - odomX) ** 2 + (self.closed_nodes_rotated[j][1] - qy - odomY) ** 2)
+                    d = math.sqrt(math.pow(self.closed_nodes_rotated[j][0] - qx - odomX, 2) +
+                                  math.pow(self.closed_nodes_rotated[j][1] - qy - odomY, 2))
                     if d < self.node_vicinity:
                         f = False
                         self.get_logger().debug(f'Free space node too close to closed node {j}. Skipping addition.')
@@ -839,7 +875,8 @@ class ImplementEnv(Node):
                     j += 1
                 j = 0
                 while f and j < len(self.deleted_nodes_rotated):
-                    d = math.sqrt((self.deleted_nodes_rotated[j][0] - qx - odomX) ** 2 + (self.deleted_nodes_rotated[j][1] - qy - odomY) ** 2)
+                    d = math.sqrt(math.pow(self.deleted_nodes_rotated[j][0] - qx - odomX, 2) +
+                                  math.pow(self.deleted_nodes_rotated[j][1] - qy - odomY, 2))
                     if d < self.del_node_vicinity:
                         f = False
                         self.get_logger().debug(f'Free space node too close to deleted node {j}. Skipping addition.')
@@ -876,7 +913,8 @@ class ImplementEnv(Node):
                 f = True
                 j = 0
                 while j < len(self.nodes):
-                    d = math.sqrt((self.nodes[j][2] - qx - odomX) ** 2 + (self.nodes[j][3] - qy - odomY) ** 2)
+                    d = math.sqrt(math.pow(self.nodes[j][2] - qx - odomX, 2) +
+                                  math.pow(self.nodes[j][3] - qy - odomY, 2))
                     if d < self.node_vicinity:
                         f = False
                         self.get_logger().debug(f'Infinite node too close to existing node {j}. Skipping addition.')
@@ -884,7 +922,8 @@ class ImplementEnv(Node):
                     j += 1
                 j = 0
                 while f and j < len(self.closed_nodes_rotated):
-                    d = math.sqrt((self.closed_nodes_rotated[j][0] - qx - odomX) ** 2 + (self.closed_nodes_rotated[j][1] - qy - odomY) ** 2)
+                    d = math.sqrt(math.pow(self.closed_nodes_rotated[j][0] - qx - odomX, 2) +
+                                  math.pow(self.closed_nodes_rotated[j][1] - qy - odomY, 2))
                     if d < self.node_vicinity:
                         f = False
                         self.get_logger().debug(f'Infinite node too close to closed node {j}. Skipping addition.')
@@ -892,7 +931,8 @@ class ImplementEnv(Node):
                     j += 1
                 j = 0
                 while f and j < len(self.deleted_nodes_rotated):
-                    d = math.sqrt((self.deleted_nodes_rotated[j][0] - qx - odomX) ** 2 + (self.deleted_nodes_rotated[j][1] - qy - odomY) ** 2)
+                    d = math.sqrt(math.pow(self.deleted_nodes_rotated[j][0] - qx - odomX, 2) +
+                                  math.pow(self.deleted_nodes_rotated[j][1] - qy - odomY, 2))
                     if d < self.del_node_vicinity:
                         f = False
                         self.get_logger().debug(f'Infinite node too close to deleted node {j}. Skipping addition.')
@@ -910,7 +950,7 @@ class ImplementEnv(Node):
         """Remove nodes that the robot has reached."""
         self.get_logger().debug('Checking robot position against nodes.')
         for i in range(len(self.nodes)):
-            d = math.sqrt((self.nodes[i][2] - odomX) ** 2 + (self.nodes[i][3] - odomY) ** 2)
+            d = math.sqrt(math.pow(self.nodes[i][2] - odomX, 2) + math.pow(self.nodes[i][3] - odomY, 2))
             if d < 0.75:
                 try:
                     self.nodes.remove(self.nodes[i])
@@ -927,14 +967,9 @@ class ImplementEnv(Node):
         self.get_logger().debug(f'Appended to last_statesX: {X}, last_statesY: {Y}')
 
         # Only check if enough data points have been collected
-        if len(self.last_statesX) == self.freeze_rate and len(self.last_statesY) == self.freeze_rate:
-            std_x = stdev(self.last_statesX)
-            std_y = stdev(self.last_statesY)
-            self.get_logger().debug(f'Standard deviations - X: {std_x}, Y: {std_y}')
-
-            if std_x < self.stddev_threshold and std_y < self.stddev_threshold:
-                self.get_logger().info('Robot state frozen based on standard deviation thresholds.')
-                return True
+        if len(self.last_statesX) > (self.freeze_rate-50) and stdev(self.last_statesX) < self.stddev_threshold and\
+            stdev(self.last_statesY) < self.stddev_threshold:
+            return True
         return False
 
     def laser_check(self, lscan):
@@ -986,42 +1021,42 @@ class ImplementEnv(Node):
         self.path_publisher.publish(self.path_msg)
         self.get_logger().debug('Published path.')
 
-def main(args=None):
-    rclpy.init(args=args)
+# def main(args=None):
+#     rclpy.init(args=args)
 
-    # Define an Args class or replace with actual argument parsing
-    class Args:
-        node_vicinity = 1.0
-        deleted_node_vicinity = 1.5
-        min_in = 0.5
-        side_min_in = 0.7
-        delete_nodes_range = 0.5
-        acceleration_low = 0.1
-        acceleration_high = 0.2
-        deceleration_low = 0.1
-        deceleration_high = 0.2
-        angular_acceleration = 0.05
-        x = 10.0
-        y = 10.0
-        nr_of_nodes = 100
-        nr_of_closed_nodes = 50
-        nr_of_deleted_nodes = 50
-        update_rate = 100
-        remove_rate = 100
-        stddev_threshold = 0.05  # Increased from 0.01
-        freeze_rate = 100        # Increased from 50
+#     # Define an Args class or replace with actual argument parsing
+#     class Args:
+#         node_vicinity = 1.0
+#         deleted_node_vicinity = 1.5
+#         min_in = 0.5
+#         side_min_in = 0.7
+#         delete_nodes_range = 0.5
+#         acceleration_low = 0.1
+#         acceleration_high = 0.2
+#         deceleration_low = 0.1
+#         deceleration_high = 0.2
+#         angular_acceleration = 0.05
+#         x = 10.0
+#         y = 10.0
+#         nr_of_nodes = 100
+#         nr_of_closed_nodes = 50
+#         nr_of_deleted_nodes = 50
+#         update_rate = 100
+#         remove_rate = 100
+#         stddev_threshold = 0.05  # Increased from 0.01
+#         freeze_rate = 100        # Increased from 50
 
-    args = Args()
+#     args = Args()
 
-    node = ImplementEnv(args)
+#     node = ImplementEnv(args)
 
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        node.get_logger().info('Keyboard Interrupt (SIGINT)')
-    finally:
-        node.destroy_node()
-        rclpy.shutdown()
+#     try:
+#         rclpy.spin(node)
+#     except KeyboardInterrupt:
+#         pass
+#     finally:
+#         node.destroy_node()
+#         rclpy.shutdown()
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
