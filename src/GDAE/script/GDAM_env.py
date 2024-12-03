@@ -1,41 +1,46 @@
-# GDAM_env.py
-
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from rclpy.qos import QoSProfile, qos_profile_sensor_data
 
 from numpy import inf
-import subprocess
-from visualization_msgs.msg import Marker, MarkerArray
-from geometry_msgs.msg import Point, Twist
-from pyquaternion import Quaternion
 from collections import deque
 import numpy as np
 import math
 from statistics import stdev
 
+from visualization_msgs.msg import Marker, MarkerArray
+from geometry_msgs.msg import Point, Twist, PoseStamped
+from nav_msgs.msg import Odometry, Path
+from sensor_msgs.msg import LaserScan
+from nav2_msgs.action import NavigateToPose
+
 import tf_transformations
 import tf2_ros
 from tf2_ros import TransformException
-from sensor_msgs.msg import LaserScan
-from nav2_msgs.action import NavigateToPose
-from nav_msgs.msg import Odometry, Path
-import os
+from pyquaternion import Quaternion
 
 def rotateneg(point, angle):
+    """Rotate a point negatively by a given angle."""
     x, y = point
     xx = x * math.cos(angle) + y * math.sin(angle)
     yy = -x * math.sin(angle) + y * math.cos(angle)
     return xx, yy
 
 def rotatepos(point, angle):
+    """Rotate a point positively by a given angle."""
     x, y = point
     xx = x * math.cos(angle) - y * math.sin(angle)
     yy = x * math.sin(angle) + y * math.cos(angle)
     return xx, yy
 
 def calcqxqy(dist, angl, ang):
+    """
+    Calculate rotated coordinates based on distance and angles.
+    dist: distance measurement from laser scan
+    angl: angle from laser scan segment
+    ang: robot's current orientation angle
+    """
     angl = math.radians(angl)
     angle = angl + ang
     # Normalize angle to [-pi, pi]
@@ -53,7 +58,7 @@ def safe_min(lst, default=10.0):
 class ImplementEnv(Node):
     def __init__(self, args):
 
-        super().__init__('gym')
+        super().__init__('gdae')
         self.get_logger().info('ImplementEnv node has been initialized.')
 
         # Initialize counters
@@ -587,9 +592,11 @@ class ImplementEnv(Node):
         Dist = min(5.0, Dist)
         toGoal = [Dist / 10.0, (beta2 + np.pi) / (np.pi * 2)]
         self.get_logger().debug(f'toGoal computed as: {toGoal}')
+
         return laser_state, toGoal
 
     def recover(self, linear, angular, minleft, minright, colleft=False, colright=False, col=False):
+        """Adjust velocities based on collision detections."""
         self.get_logger().debug('Recover function called.')
         if colleft and colright:
             self.get_logger().debug('Both colleft and colright are True. Setting angular to 0.0 and linear to 0.3.')
@@ -651,6 +658,7 @@ class ImplementEnv(Node):
         return linear, angular
 
     def heuristic(self, odomX, odomY, candidateX, candidateY):
+        """Calculate a heuristic value for goal selection."""
         to_goal2 = True
         gX = self.global_goal_x
         gY = self.global_goal_y
@@ -669,6 +677,7 @@ class ImplementEnv(Node):
         return d
 
     def change_goal(self):
+        """Change the current navigation goal."""
         self.get_logger().info('Changing goal.')
         if self.nodes:
             try:
@@ -680,6 +689,7 @@ class ImplementEnv(Node):
                 self.get_logger().error("Attempted to remove a non-existing node.")
 
     def check_goal(self):
+        """Select the best goal based on the heuristic."""
         self.get_logger().debug('Checking for the best goal.')
         if not self.nodes:
             self.get_logger().info("No nodes available to set as goal.")
@@ -709,6 +719,7 @@ class ImplementEnv(Node):
         self.get_logger().info(f'Sent NavigateToPose goal: X={goal_msg.pose.pose.position.x}, Y={goal_msg.pose.pose.position.y}')
 
     def new_nodes(self, laser, odomX, odomY, ang, trans, q9c):
+        """Add new nodes based on laser scan data."""
         self.get_logger().debug('Adding new nodes based on laser scan.')
         for i in range(1, len(laser)):
             if len(self.nodes) > 0 and laser[i] < 7.5:
@@ -772,6 +783,7 @@ class ImplementEnv(Node):
                     self.get_logger().info(f'Added new node: X={p_tmp[0] + trans[0]}, Y={p_tmp[1] + trans[1]}')
 
     def free_space_nodes(self, laser, odomX, odomY, ang, trans, q9c):
+        """Add free space nodes based on laser scan data."""
         self.get_logger().debug('Adding free space nodes based on laser scan.')
         count5 = 0
         min_d = 100.0
@@ -830,6 +842,7 @@ class ImplementEnv(Node):
                     self.get_logger().info(f'Added free space node: X={p_tmp[0] + trans[0]}, Y={p_tmp[1] + trans[1]}')
 
     def infinite_nodes(self, laser, odomX, odomY, ang, trans, q9c):
+        """Add infinite nodes based on laser scan data."""
         self.get_logger().debug('Adding infinite nodes based on laser scan.')
         tmp_i = 0
         save_i = 0
@@ -882,6 +895,7 @@ class ImplementEnv(Node):
                     self.get_logger().info(f'Added infinite node: X={p_tmp[0] + trans[0]}, Y={p_tmp[1] + trans[1]}')
 
     def check_pos(self, odomX, odomY):
+        """Remove nodes that the robot has reached."""
         self.get_logger().debug('Checking robot position against nodes.')
         for i in range(len(self.nodes)):
             d = math.sqrt((self.nodes[i][2] - odomX) ** 2 + (self.nodes[i][3] - odomY) ** 2)
@@ -895,17 +909,24 @@ class ImplementEnv(Node):
                 break
 
     def freeze(self, X, Y):
+        """Determine if the robot's state is stable based on standard deviation thresholds."""
         self.last_statesX.append(X)
         self.last_statesY.append(Y)
         self.get_logger().debug(f'Appended to last_statesX: {X}, last_statesY: {Y}')
 
-        if len(self.last_statesX) > (self.freeze_rate - 50) and stdev(self.last_statesX) < self.stddev_threshold and \
-                stdev(self.last_statesY) < self.stddev_threshold:
-            self.get_logger().info('Robot state frozen based on standard deviation thresholds.')
-            return True
+        # Only check if enough data points have been collected
+        if len(self.last_statesX) == self.freeze_rate and len(self.last_statesY) == self.freeze_rate:
+            std_x = stdev(self.last_statesX)
+            std_y = stdev(self.last_statesY)
+            self.get_logger().debug(f'Standard deviations - X: {std_x}, Y: {std_y}')
+
+            if std_x < self.stddev_threshold and std_y < self.stddev_threshold:
+                self.get_logger().info('Robot state frozen based on standard deviation thresholds.')
+                return True
         return False
 
     def laser_check(self, lscan):
+        """Check for collisions based on laser scan data."""
         col = False
         colleft = False
         colright = False
@@ -955,10 +976,10 @@ def main(args=None):
         nr_of_nodes = 100
         nr_of_closed_nodes = 50
         nr_of_deleted_nodes = 50
-        update_rate = 10
+        update_rate = 100
         remove_rate = 100
-        stddev_threshold = 0.01
-        freeze_rate = 50
+        stddev_threshold = 0.05  # Increased from 0.01
+        freeze_rate = 100        # Increased from 50
 
     args = Args()
 
