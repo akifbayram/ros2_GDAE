@@ -14,9 +14,8 @@
 ## Requirements
 
 - **ROS2 Humble**
-- **TurtleBot Packages**
-  - `turtlebot4` (for TurtleBot 4)
-  - `turtlebot3` (for TurtleBot 3)
+- `turtlebot4` (for TurtleBot 4)
+
 ---
 
 ## Installation
@@ -41,24 +40,23 @@
 
 ### 1. **Launch the Simulation and Environment Nodes**
 
-Start the TurtleBot simulation along with necessary nodes for SLAM and navigation:
+Start the TurtleBot simulation along with necessary nodes for SLAM, Nav2, and Rviz2:
 
 ```bash
 cd ~/ros2_GDAE &&
 source install/setup.bash &&
 source /etc/turtlebot4/setup.bash &&
-ros2 launch gdae tb4.launch.py
+ros2 launch gdae tb4.launch.py 
 ```
+
+The TurtleBot4 will undock as part of the launch script.
 
 ### 2. **Start the Autonomous Exploration**
 
-Undock the TurtleBot4 and run the Goal Driven Autonomous Exploration node:
+Run the Goal Driven Autonomous Exploration node:
 
 ```bash
 source /etc/turtlebot4/setup.bash &&
-ros2 action send_goal /undock irobot_create_msgs/action/Undock "{}"
-```
-```bash
 ros2 run gdae GDAM
 ```
 

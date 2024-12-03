@@ -1,4 +1,5 @@
 import rclpy
+import os
 from rclpy.node import Node
 from rclpy.action import ActionClient
 from rclpy.qos import QoSProfile, qos_profile_sensor_data
@@ -129,19 +130,6 @@ class ImplementEnv(Node):
         self.goalY = self.nodes[0][3]
 
         self.g_node = 0
-
-        """
-        # ROS 2 does not use ROS_PORT_SIM. Launch files are handled externally.
-        if launchfile.startswith("/"):
-            fullpath = launchfile
-        else:
-            fullpath = os.path.join(os.path.dirname(__file__), "assets", "launch", launchfile)
-        if not os.path.exists(fullpath):
-            raise IOError("File " + fullpath + " does not exist")
-
-        # Start the launch file using subprocess (ensure it is compatible with ROS 2)
-        subprocess.Popen(["ros2", "launch", fullpath])
-        """
 
         qos = QoSProfile(depth=10)
         sensor_qos = qos_profile_sensor_data
