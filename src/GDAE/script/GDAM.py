@@ -1,8 +1,8 @@
-from GDAM_env import ImplementEnv
+from script.GDAM_env import ImplementEnv
 import tensorflow as tf
 import tflearn
 import numpy as np
-from GDAM_args import d_args
+from script.GDAM_args import d_args
 import rclpy
 import time
 
@@ -116,26 +116,26 @@ def main():
         logger.debug(f"Variable {idx:3}: {v.get_shape()} - {v.name}")
     
     # Restore model from checkpoint
-    saver = tf.compat.v1.train.Saver(a_net_params, max_to_keep=1)
-    checkpoint_path = "/home/cs488/ros2_GDAE/src/GDAE/model"
-    checkpoint = tf.train.get_checkpoint_state(checkpoint_path)
+    # saver = tf.compat.v1.train.Saver(a_net_params, max_to_keep=1)
+    # checkpoint_path = "/home/cs488/ros2_GDAE/src/GDAE/model"
+    # checkpoint = tf.train.get_checkpoint_state(checkpoint_path)
     
-    if checkpoint and checkpoint.model_checkpoint_path:
-        try:
-            saver.restore(sess, checkpoint.model_checkpoint_path)
-            logger.info(f"Model successfully restored from: {checkpoint.model_checkpoint_path}")
-        except Exception as e:
-            logger.error(f"Failed to restore model from checkpoint: {e}")
-            # Optionally, exit if model restoration is critical
-            # logger.error("Exiting due to failed model restoration.")
-            # exit(1)
-    else:
-        logger.error("No checkpoint found at specified path.")
-        # Optionally, proceed without restoring the model
-        # Or exit the program if a trained model is required
-        # Uncomment the following line to exit if no checkpoint is found
-        # logger.error("Exiting due to missing checkpoint.")
-        # exit(1)
+    # if checkpoint and checkpoint.model_checkpoint_path:
+    #     try:
+    #         saver.restore(sess, checkpoint.model_checkpoint_path)
+    #         logger.info(f"Model successfully restored from: {checkpoint.model_checkpoint_path}")
+    #     except Exception as e:
+    #         logger.error(f"Failed to restore model from checkpoint: {e}")
+    #         # Optionally, exit if model restoration is critical
+    #         # logger.error("Exiting due to failed model restoration.")
+    #         # exit(1)
+    # else:
+    #     logger.error("No checkpoint found at specified path.")
+    #     # Optionally, proceed without restoring the model
+    #     # Or exit the program if a trained model is required
+    #     # Uncomment the following line to exit if no checkpoint is found
+    #     # logger.error("Exiting due to missing checkpoint.")
+    #     # exit(1)
     
     # Start testing loop
     try:

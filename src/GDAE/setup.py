@@ -9,8 +9,10 @@ setup(
     version='0.0.1',
     packages=[package_name],
     py_modules=[
-        'script.gdae_tb4',
-        'script.gdae_tb3'
+        'script.GDAM',
+        'script.GDAM_env',
+        'script.GDAM_args',
+        # 'script.gdae_tb3'
     ],
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
@@ -19,6 +21,7 @@ setup(
         (os.path.join('share', package_name, 'params'), glob('params/*.yaml')),
         (os.path.join('share', package_name, 'rviz'), glob('rviz/*.rviz')),
         (os.path.join('share', package_name, 'worlds'), glob('worlds/*.world')),
+        (os.path.join('share', package_name, 'script'), glob('script/*.py')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -29,7 +32,9 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'gdae_tb4 = script.gdae_tb4:main',
+            'GDAM = script.GDAM:main',
+            'GDAM_env = script.GDAM_env:main',
+            'GDAM_args = script.GDAM_args:main',
         ],
     },
 )
