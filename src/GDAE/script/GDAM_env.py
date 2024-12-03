@@ -169,6 +169,15 @@ class ImplementEnv(Node):
         self.global_goal_publisher = self.create_publisher(MarkerArray, 'global_goal_publisher', qos)
         self.get_logger().info('Publisher for global_goal_publisher created.')
 
+        # Publisher for Path
+        self.path_publisher = self.create_publisher(Path, 'path', qos)
+        self.get_logger().info('Publisher for /path created.')
+
+        # Initialize Path message
+        self.path_msg = Path()
+        self.path_msg.header.frame_id = 'odom'  # Ensure this matches your fixed frame in RViz2
+        self.path_poses = deque()  
+
         # Subscriptions
         self.navLaser = self.create_subscription(LaserScan, '/scan', self.Laser_callback, sensor_qos)
         self.get_logger().info('Subscription to /scan created.')
@@ -402,6 +411,9 @@ class ImplementEnv(Node):
 
         self.linearLast = linear
         self.angularLast = angular
+
+        # Publish the path
+        self.publish_path(dataOdom)
 
         # Visualization markers
         sphere_list = Marker()
@@ -955,6 +967,24 @@ class ImplementEnv(Node):
 
         self.get_logger().debug(f'Final collision states - col: {col}, colleft: {colleft}, colright: {colright}, minleft: {minleft}, minright: {minright}')
         return col, colleft, colright, minleft, minright
+
+    def publish_path(self, odom_data):
+        """Append the current pose to the path and publish it."""
+        pose_stamped = PoseStamped()
+        pose_stamped.header.frame_id = 'map'  # Must match self.path_msg.header.frame_id
+        pose_stamped.header.stamp = self.get_clock().now().to_msg()
+        pose_stamped.pose = odom_data.pose.pose
+
+        # Append the new pose to the deque
+        self.path_poses.append(pose_stamped)
+
+        # Update the Path message
+        self.path_msg.header.stamp = pose_stamped.header.stamp
+        self.path_msg.poses = list(self.path_poses)
+
+        # Publish the Path
+        self.path_publisher.publish(self.path_msg)
+        self.get_logger().debug('Published path.')
 
 def main(args=None):
     rclpy.init(args=args)
