@@ -44,18 +44,22 @@
 Start the TurtleBot simulation along with necessary nodes for SLAM and navigation:
 
 ```bash
-source /opt/ros/humble/setup.bash
-cd ~/ros2_GDAE
-source install/setup.bash
+cd ~/ros2_GDAE &&
+source install/setup.bash &&
+source /etc/turtlebot4/setup.bash &&
 ros2 launch gdae tb4.launch.py
 ```
 
 ### 2. **Start the Autonomous Exploration**
 
-Run the Goal Driven Autonomous Exploration node:
+Undock the TurtleBot4 and run the Goal Driven Autonomous Exploration node:
 
 ```bash
-ros2 run gdae GDAM.py
+source /etc/turtlebot4/setup.bash &&
+ros2 action send_goal /undock irobot_create_msgs/action/Undock "{}"
+```
+```bash
+ros2 run gdae GDAM
 ```
 
 **Arguments:**
@@ -65,5 +69,5 @@ ros2 run gdae GDAM.py
 **Example:**
 
 ```bash
-ros2 run gdae GDAM.py --x 5.0 --y 0.0
+ros2 run gdae GDAM --x 5.0 --y 0.0
 ```
