@@ -12,7 +12,6 @@ setup(
         'script.GDAM',
         'script.GDAM_env',
         'script.GDAM_args',
-        # 'script.gdae_tb3'
     ],
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
