@@ -758,7 +758,21 @@ class ImplementEnv(Node):
         goal_msg.pose.pose.position.y = self.nodes[self.g_node][3]
         goal_msg.pose.pose.orientation.w = 1.0
         self.client.send_goal_async(goal_msg)
-        self.get_logger().info(f'Sent NavigateToPose goal: X={goal_msg.pose.pose.position.x}, Y={goal_msg.pose.pose.position.y}')
+        self.get_logger().info(self.colorize(f'Sent NavigateToPose goal: X={goal_msg.pose.pose.position.x}, Y={goal_msg.pose.pose.position.y}', 'green'))
+
+    def colorize(self, text, color):
+        """Add ANSI color codes to the text."""
+        colors = {
+            'red': '\033[91m',
+            'green': '\033[92m',
+            'yellow': '\033[93m',
+            'blue': '\033[94m',
+            'magenta': '\033[95m',
+            'cyan': '\033[96m',
+            'white': '\033[97m',
+            'reset': '\033[0m'
+        }
+        return f"{colors.get(color, colors['reset'])}{text}{colors['reset']}"
 
     def new_nodes(self, laser, odomX, odomY, ang, trans, q9c):
         """Add new nodes based on laser scan data."""
@@ -779,7 +793,7 @@ class ImplementEnv(Node):
                         node = [self.nodes[j][2], self.nodes[j][3]]
                         p_tmp = q9c.rotate([node[0], node[1], 0])
                         self.deleted_nodes.append([p_tmp[0] + trans[0], p_tmp[1] + trans[1]])
-                        self.get_logger().info(f'Removing node {j} due to proximity. Added to deleted_nodes.')
+                        self.get_logger().info(self.colorize(f'Removing node {j} due to proximity. Added to deleted_nodes.', 'red'))
                         self.nodes.remove(self.nodes[j])
                         self.check_goal()
                         break
@@ -826,7 +840,7 @@ class ImplementEnv(Node):
                     p_tmp = q9c.rotate([local_x, local_y, 0])
                     self.nodes.append(
                         [p_tmp[0] + trans[0], p_tmp[1] + trans[1], p_tmp[0] + trans[0], p_tmp[1] + trans[1], 0])
-                    self.get_logger().info(f'Added new node: X={p_tmp[0] + trans[0]}, Y={p_tmp[1] + trans[1]}')
+                    self.get_logger().info(self.colorize(f'Added new node: X={p_tmp[0] + trans[0]}, Y={p_tmp[1] + trans[1]}', 'blue'))
 
     def free_space_nodes(self, laser, odomX, odomY, ang, trans, q9c):
         """Add free space nodes based on laser scan data."""
