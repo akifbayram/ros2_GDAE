@@ -22,17 +22,17 @@
 
 1. **Clone the Repository:**
 
-    ```bash
-    git clone https://github.com/akifbayram/ros2_GDAE.git
-    cd ros2_GDAE
-    ```
+```bash
+git clone https://github.com/akifbayram/ros2_GDAE.git
+cd ros2_GDAE
+```
 
 2. **Build and Source Workspace:**
 
-    ```bash
-    colcon build
-    source install/setup.bash
-    ```
+```bash
+colcon build
+source install/setup.bash
+```
 
 ---
 
@@ -53,9 +53,11 @@ The TurtleBot4 will undock as part of the launch script.
 
 ### 2. **Start the Autonomous Exploration**
 
-Run the Goal Driven Autonomous Exploration node:
+In another terminal, run the Goal Driven Autonomous Exploration node:
 
 ```bash
+cd ~/ros2_GDAE &&
+source install/setup.bash &&
 source /etc/turtlebot4/setup.bash &&
 ros2 run gdae GDAM
 ```
