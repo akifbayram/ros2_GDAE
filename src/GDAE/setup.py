@@ -12,6 +12,7 @@ setup(
         'script.GDAM',
         'script.GDAM_env',
         'script.GDAM_args',
+        'script.timer',
     ],
     data_files=[
         ('share/ament_index/resource_index/packages', ['resource/' + package_name]),
@@ -34,6 +35,7 @@ setup(
             'GDAM = script.GDAM:main',
             'GDAM_env = script.GDAM_env:main',
             'GDAM_args = script.GDAM_args:main',
+            'timer = script.timer:main',
         ],
     },
 )

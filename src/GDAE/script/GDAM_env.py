@@ -18,6 +18,7 @@ import tf_transformations
 import tf2_ros
 from tf2_ros import TransformException
 from pyquaternion import Quaternion
+from script.timer import GoalTimer
 
 def rotate(point, angle):
     """Rotate a point by a given angle."""
@@ -51,6 +52,9 @@ class ImplementEnv(Node):
 
         super().__init__('gdae')
         self.get_logger().info('ImplementEnv node has been initialized.')
+
+        # Initialize GoalTimer
+        self.goal_timer = GoalTimer(self)
 
         # Initialize counters
         self.countZero = 0
@@ -155,6 +159,9 @@ class ImplementEnv(Node):
         self.tf_buffer = tf2_ros.Buffer()
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer, self)
 
+        # Start the goal timer
+        self.goal_timer.start()
+
     def Laser_callback(self, l):
         self.LaserData = l
 
@@ -238,6 +245,12 @@ class ImplementEnv(Node):
             vel_cmd.angular.z = 0.0
             self.vel_pub.publish(vel_cmd)
             self.get_logger().info('Published stop command.')
+            # Stop the goal timer
+            elapsed_time = self.goal_timer.stop(success=True)
+            if elapsed_time is not None:
+                self.get_logger().info(f'Goal achieved in {elapsed_time} seconds.')
+            else:
+                self.get_logger().info('Timer was already stopped.')
             return laser_state, [0, 0]
 
         # Update nodes based on laser scan
