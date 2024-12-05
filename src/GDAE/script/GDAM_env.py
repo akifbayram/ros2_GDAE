@@ -445,8 +445,8 @@ class ImplementEnv(Node):
         goal_msg = NavigateToPose.Goal()
         goal_msg.pose.header.frame_id = 'map'  # Ensure 'map' frame exists
         goal_msg.pose.header.stamp = self.get_clock().now().to_msg()
-        goal_msg.pose.pose.position.x = self.nodes[self.g_node][2]
-        goal_msg.pose.pose.position.y = self.nodes[self.g_node][3]
+        goal_msg.pose.pose.position.x = self.nodes[self.g_node][0]
+        goal_msg.pose.pose.position.y = self.nodes[self.g_node][1]
         goal_msg.pose.pose.orientation.w = 1.0
         self.client.send_goal_async(goal_msg)
         self.get_logger().info(self.colorize(f'Sent NavigateToPose goal: X={goal_msg.pose.pose.position.x}, Y={goal_msg.pose.pose.position.y}', 'green'))
