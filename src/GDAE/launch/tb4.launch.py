@@ -12,14 +12,23 @@ def generate_launch_description():
         'turtlebot4_ignition.launch.py'
     )
 
+    nav2_bringup_path = os.path.join(
+        FindPackageShare('turtlebot4_navigation').find('turtlebot4_navigation'),
+        'launch',
+        'nav2.launch.py'
+    )
+
     # Path to the custom RViz configuration file
     rviz_config_path = os.path.expanduser('~/ros2_GDAE/src/GDAE/rviz/tb4.rviz')
+
+    # Path to the navigation parameter file
+    nav2_params_path = os.path.expanduser('~/ros2_GDAE/src/GDAE/config/nav2.yaml')
 
     # Launch actions for ignition bringup
     ignition_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(ignition_bringup_path),
         launch_arguments={
-            'nav2': 'true',
+            'nav2': 'false',
             'slam': 'true',
             'localization': 'false',
             'rviz': 'false'
@@ -30,6 +39,14 @@ def generate_launch_description():
     rviz_launch = ExecuteProcess(
         cmd=['rviz2', '-d', rviz_config_path],
         output='screen'
+    )
+
+    # Launch nav2 with specified parameters
+    nav2_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(nav2_bringup_path),
+        launch_arguments={
+            'params': nav2_params_path
+        }.items()
     )
 
     # Command to undock the robot after it has loaded
@@ -52,6 +69,9 @@ def generate_launch_description():
         
         # Launch RViz
         rviz_launch,
+
+        # Launch nav2
+        nav2_launch,
         
         # Undock command
         undock_command,
