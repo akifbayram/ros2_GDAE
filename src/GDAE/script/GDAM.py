@@ -3,12 +3,13 @@
 from script.GDAM_env import ImplementEnv
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
 from script.GDAM_args import d_args
 import rclpy
 import time
-
+import os
+from ament_index_python.packages import PackageNotFoundError
+from ament_index_python.packages import get_package_share_directory
 
 class ActorNetwork(nn.Module):
     def __init__(self, logger):
@@ -119,20 +120,54 @@ def main():
     # Create ActorNetwork
     actor = ActorNetwork(logger)
 
-    # Load the trained PyTorch Actor model
-    actor_model_path = "/home/cs488/ros2_GDAE/src/GDAE/model/SAC_actor.pth"
     try:
-        try:
-            actor.load_state_dict(torch.load(actor_model_path, map_location=torch.device('cpu'), weights_only=True), strict=True)
-            logger.info(f"PyTorch ActorNetwork successfully loaded from {actor_model_path} with weights_only=True")
-        except TypeError:
-            # weights_only not supported in this PyTorch version
-            actor.load_state_dict(torch.load(actor_model_path, map_location=torch.device('cpu')), strict=True)
-            logger.warning("'weights_only' parameter not supported in your PyTorch version. Proceeding without it.")
-        actor.eval()  # Set to evaluation mode
-    except Exception as e:
-        logger.error(f"Failed to load PyTorch Actor model from {actor_model_path}: {e}")
+        package_share_directory = get_package_share_directory('gdae')
+    except PackageNotFoundError:
+        logger.error("Package 'gdae' not found. Ensure it is properly installed and sourced.")
         exit(1)
+
+    # Define the relative path to the model directory within the package
+    model_dir = os.path.join(package_share_directory, 'model')
+
+    # Ensure the model directory exists
+    if not os.path.isdir(model_dir):
+        logger.error(f"Model directory does not exist: {model_dir}")
+        exit(1)
+
+    # Construct paths to the model files
+    actor_model_path = os.path.join(model_dir, 'SAC_actor.pth')
+    critic_model_path = os.path.join(model_dir, 'SAC_critic.pth')
+    critic_target_model_path = os.path.join(model_dir, 'SAC_critic_target.pth')
+
+    # Function to load model state_dict
+    def load_model(model, path, model_name="Model"):
+        if not os.path.isfile(path):
+            logger.error(f"{model_name} file does not exist at {path}")
+            exit(1)
+        try:
+            try:
+                # Attempt to load the state dict with weights_only (if supported)
+                state_dict = torch.load(path, map_location=torch.device('cpu'), weights_only=True)
+                model.load_state_dict(state_dict, strict=True)
+                logger.info(f"{model_name} successfully loaded from {path} with weights_only=True")
+            except TypeError:
+                # weights_only not supported in this PyTorch version
+                state_dict = torch.load(path, map_location=torch.device('cpu'))
+                model.load_state_dict(state_dict, strict=True)
+                logger.warning(f"'weights_only' parameter not supported in your PyTorch version. {model_name} loaded without it.")
+            model.eval()  # Set to evaluation mode
+        except Exception as e:
+            logger.error(f"Failed to load {model_name} from {path}: {e}")
+            exit(1)
+
+    # Load the Actor model
+    load_model(actor, actor_model_path, model_name="Actor Network")
+
+    # critic = CriticNetwork(logger)
+    # load_model(critic, critic_model_path, model_name="Critic Network")
+    
+    # critic_target = CriticTargetNetwork(logger)
+    # load_model(critic_target, critic_target_model_path, model_name="Critic Target Network")
 
     # Start testing loop
     try:
