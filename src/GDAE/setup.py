@@ -22,6 +22,7 @@ setup(
         (os.path.join('share', package_name, 'rviz'), glob('rviz/*.rviz')),
         (os.path.join('share', package_name, 'worlds'), glob('worlds/*.world')),
         (os.path.join('share', package_name, 'script'), glob('script/*.py')),
+        (os.path.join('share', package_name, 'model'), glob('model/*.pth')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
