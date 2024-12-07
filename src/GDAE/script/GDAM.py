@@ -1,42 +1,53 @@
+# actor_integration.py
+
 from script.GDAM_env import ImplementEnv
-import tensorflow as tf
-import tflearn
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 from script.GDAM_args import d_args
 import rclpy
 import time
 
 
-class ActorNetwork(object):
-
-    def __init__(self, sess, logger):
-        self.sess = sess
+class ActorNetwork(nn.Module):
+    def __init__(self, logger):
+        super(ActorNetwork, self).__init__()
         self.logger = logger
-        self.logger.info("Initializing ActorNetwork...")
-        self.inputs, self.out, self.scaled_out, self.im_out = self.create_actor_network()
-        self.network_params = tf.compat.v1.trainable_variables()
-        self.logger.debug(f"ActorNetwork initialized with {len(self.network_params)} parameters.")
+        self.logger.info("Initializing PyTorch ActorNetwork...")
 
-    def create_actor_network(self):
-        self.logger.debug("Creating actor network architecture...")
-        inputs = tflearn.input_data(shape=[None, 23])
-        net = tflearn.fully_connected(inputs, 800)
-        net = tflearn.activations.relu(net)
-        net = tflearn.fully_connected(net, 600)
-        net = tflearn.activations.relu(net)
-        im_out = inputs
+        # Define the network architecture matching the saved model's structure
+        self.trunk = nn.Sequential(
+            nn.Linear(25, 1024), 
+            nn.ReLU(),
+            nn.Linear(1024, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, 4),  
+            nn.Tanh()
+        )
 
-        out = tflearn.fully_connected(net, 2, activation='tanh')
+        # Initialize weights (optional but recommended)
+        self._initialize_weights()
 
-        scaled_out = tf.multiply(out, [1.0, 1.0])  # Ensure float types
-        self.logger.debug("Actor network architecture created.")
-        return inputs, out, scaled_out, im_out
+        self.logger.debug("PyTorch ActorNetwork architecture created.")
+
+    def _initialize_weights(self):
+        # Initialize weights using Xavier initialization
+        for m in self.trunk:
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                nn.init.zeros_(m.bias)
+
+    def forward(self, x):
+        self.logger.debug("Forward pass through ActorNetwork...")
+        return self.trunk(x)
 
     def predict(self, inputs):
         self.logger.debug("Predicting action from actor network...")
-        actions = self.sess.run(self.scaled_out, feed_dict={
-            self.inputs: inputs
-        })
+        self.eval() 
+        with torch.no_grad():
+            inputs_tensor = torch.from_numpy(np.array(inputs)).float()
+            actions = self.forward(inputs_tensor).numpy()
         self.logger.debug(f"Predicted actions: {actions}")
         return actions
 
@@ -44,40 +55,52 @@ class ActorNetwork(object):
 def test(env, actor):
     logger = env.get_logger()
     logger.info("Starting testing loop...")
-    
+
     while rclpy.ok():
-        action = [0.0, 0.0]
+        action = [0.0, 0.0, 0.0, 0.0] 
         logger.debug(f"Initial action: {action}")
         s2, toGoal = env.step(action)
-        
+
         if len(s2) == 0:
             logger.warning("Received empty laser scan data. Sleeping for 0.1 seconds...")
             time.sleep(0.1)
             continue
-        
+
         s = np.append(s2, toGoal)
         s = np.append(s, action)
         logger.debug(f"Initial state: {s}")
+
+        if len(s) != 25:
+            logger.error(f"State vector has incorrect size: {len(s)}. Expected 25.")
+            time.sleep(0.1)
+            continue
 
         while rclpy.ok():
             try:
                 a = actor.predict([s])
                 logger.debug(f"Action from actor network: {a}")
+
                 aIn = a.copy()
-                aIn[0, 0] = (aIn[0, 0] + 1.0) / 4.0
+                for i in range(aIn.shape[1]):
+                    aIn[0, i] = (aIn[0, i] + 1.0) / 4.0  # Example scaling
                 logger.debug(f"Modified action: {aIn[0]}")
-                
-                s2, toGoal = env.step(aIn[0])
+
+                s2, toGoal = env.step(aIn[0].tolist())  # Ensure action is a list
+
                 logger.debug(f"New state: {s2}, ToGoal: {toGoal}")
-                
+
                 if len(s2) == 0:
                     logger.warning("Received empty laser scan data during loop. Breaking inner loop...")
                     break
-                
-                s = np.append(s2, a[0])
-                s = np.append(s, toGoal)
+
+                s = np.append(s2, toGoal)
+                s = np.append(s, a[0])
                 logger.debug(f"Updated state: {s}")
-                
+
+                if len(s) != 25:
+                    logger.error(f"Updated state vector has incorrect size: {len(s)}. Expected 25.")
+                    break
+
                 rclpy.spin_once(env, timeout_sec=0.1)
                 time.sleep(0.1)
             except Exception as e:
@@ -87,56 +110,30 @@ def test(env, actor):
 
 def main():
     rclpy.init()
-    
+
     # Initialize environment
     env = ImplementEnv(d_args)
     logger = env.get_logger()
     logger.info("GDAM environment initialized.")
-    
-    # Initialize TensorFlow session
-    sess = tf.compat.v1.InteractiveSession()
-    logger.info("TensorFlow session started.")
-    
+
     # Create ActorNetwork
-    actor = ActorNetwork(sess, logger)
-    
-    # Initialize TensorFlow variables
-    logger.info("Initializing TensorFlow variables...")
-    init_op = tf.compat.v1.global_variables_initializer()
-    sess.run(init_op)
-    logger.debug("TensorFlow variables initialized.")
-    
-    # Enumerate and log network parameters
-    a_net_params = []
-    for variable in tf.compat.v1.trainable_variables():
-        a_net_params.append(variable)
-    
-    logger.info(f"Total trainable variables in ActorNetwork: {len(a_net_params)}")
-    for idx, v in enumerate(a_net_params):
-        logger.debug(f"Variable {idx:3}: {v.get_shape()} - {v.name}")
-    
-    # Restore model from checkpoint
-    # saver = tf.compat.v1.train.Saver(a_net_params, max_to_keep=1)
-    # checkpoint_path = "/home/cs488/ros2_GDAE/src/GDAE/model"
-    # checkpoint = tf.train.get_checkpoint_state(checkpoint_path)
-    
-    # if checkpoint and checkpoint.model_checkpoint_path:
-    #     try:
-    #         saver.restore(sess, checkpoint.model_checkpoint_path)
-    #         logger.info(f"Model successfully restored from: {checkpoint.model_checkpoint_path}")
-    #     except Exception as e:
-    #         logger.error(f"Failed to restore model from checkpoint: {e}")
-    #         # Optionally, exit if model restoration is critical
-    #         # logger.error("Exiting due to failed model restoration.")
-    #         # exit(1)
-    # else:
-    #     logger.error("No checkpoint found at specified path.")
-    #     # Optionally, proceed without restoring the model
-    #     # Or exit the program if a trained model is required
-    #     # Uncomment the following line to exit if no checkpoint is found
-    #     # logger.error("Exiting due to missing checkpoint.")
-    #     # exit(1)
-    
+    actor = ActorNetwork(logger)
+
+    # Load the trained PyTorch Actor model
+    actor_model_path = "/home/cs488/ros2_GDAE/src/GDAE/model/SAC_actor.pth"
+    try:
+        try:
+            actor.load_state_dict(torch.load(actor_model_path, map_location=torch.device('cpu'), weights_only=True), strict=True)
+            logger.info(f"PyTorch ActorNetwork successfully loaded from {actor_model_path} with weights_only=True")
+        except TypeError:
+            # weights_only not supported in this PyTorch version
+            actor.load_state_dict(torch.load(actor_model_path, map_location=torch.device('cpu')), strict=True)
+            logger.warning("'weights_only' parameter not supported in your PyTorch version. Proceeding without it.")
+        actor.eval()  # Set to evaluation mode
+    except Exception as e:
+        logger.error(f"Failed to load PyTorch Actor model from {actor_model_path}: {e}")
+        exit(1)
+
     # Start testing loop
     try:
         test(env, actor)
@@ -146,8 +143,7 @@ def main():
         logger.error(f"Unexpected exception in main: {e}")
     finally:
         env.destroy_node()
-        sess.close()
-        logger.info("Environment node destroyed and TensorFlow session closed.")
+        logger.info("Environment node destroyed.")
         rclpy.shutdown()
         logger.info("ROS 2 shutdown completed.")
 
