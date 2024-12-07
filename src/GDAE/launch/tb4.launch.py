@@ -28,10 +28,12 @@ def generate_launch_description():
     ignition_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(ignition_bringup_path),
         launch_arguments={
+            'model': 'standard',
             'nav2': 'false',
             'slam': 'true',
             'localization': 'false',
-            'rviz': 'false'
+            'rviz': 'false',
+            'world': 'warehouse' # options: depot, maze, warehouse
         }.items()
     )
 
