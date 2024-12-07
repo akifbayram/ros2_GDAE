@@ -51,7 +51,7 @@ def generate_launch_description():
 
     # Command to undock the robot after it has loaded
     undock_command = TimerAction(
-        period=5.0,  # Delay to allow the robot to initialize fully
+        period=10.0,  # Delay to allow the robot to initialize fully
         actions=[
             ExecuteProcess(
                 cmd=['ros2', 'action', 'send_goal', '/undock', 'irobot_create_msgs/action/Undock', '{}'],
